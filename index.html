@@ -7,13 +7,18 @@
   <style>
     /* ========== GLOBAL RESET ========== */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; overflow-x: hidden; }
+    html {
+      height: 100%;
+      overflow-x: hidden;
+      scroll-behavior: smooth;
+    }
     body {
       background: #0a0a0f;
       color: #e6e6e6;
       font-family: 'Courier New', monospace;
       position: relative;
-      overflow: hidden;
+      min-height: 100%;
+      overflow-y: auto;
     }
     /* ========== MISTY FOG OVERLAY ========== */
     body::before {
@@ -68,6 +73,21 @@
       transition: color 0.3s;
     }
     nav li a:hover { color: #ff2e63; }
+    #scroll-down {
+      position: absolute;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 2rem;
+      color: #ff2e63;
+      text-decoration: none;
+      animation: bounce 2s infinite;
+      z-index: 3;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translate(-50%, 0); }
+      50% { transform: translate(-50%, -10px); }
+    }
     /* ========== MAIN CODE BLOCK ========== */
     main {
       position: relative;
@@ -104,6 +124,11 @@
     .gallery-grid img {
       width: 100%;
       border-radius: 8px;
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .gallery-grid img:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 10px rgba(255,255,255,0.5);
     }
     /* ========== MUSHROOM LAYER ========== */
     .mushroom {
@@ -148,6 +173,12 @@
       border-radius: 8px;
       text-align: center;
       box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      transition: transform 0.3s, box-shadow 0.3s, background 0.3s;
+    }
+    .product-card:hover {
+      background: rgba(255,255,255,0.15);
+      transform: translateY(-5px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
     }
     .product-card img {
       width: 100%;
@@ -182,6 +213,7 @@
     <nav>
       <ul>
         <li><a href="index.html">Home</a></li>
+        <li><a href="strange-loops-art.html">Art</a></li>
         <li><a href="#gallery">gallery</a></li>
         <li><a href="#shroomart">shroomart</a></li>
       </ul>
@@ -204,6 +236,7 @@ initiate_spore_sequence();
 // end protocol
     </code>
   </main>
+  <a href="#gallery" id="scroll-down">&#x2193;</a>
 
   <!-- Gallery Section -->
   <section id="gallery">
