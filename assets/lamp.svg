@@ -1,0 +1,5 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 120' stroke='#000' fill='none' stroke-width='3'>
+  <polygon points='10,20 50,20 40,60 20,60'/>
+  <line x1='30' y1='60' x2='30' y2='110'/>
+  <circle cx='30' cy='110' r='10'/>
+</svg>
