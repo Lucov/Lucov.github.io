@@ -19,12 +19,15 @@ document.addEventListener('DOMContentLoaded', () => {
     el.addEventListener('click', e => {
       e.preventDefault();
       room.classList.add('lights-on');
-      el.classList.add('ooze');
+      if (el.classList.contains('nav-box')) {
+        el.classList.add('ooze');
+        setTimeout(() => el.classList.remove('ooze'), 600);
+      }
       const link = el.getAttribute('data-link');
       if (link) {
         setTimeout(() => {
           window.location.href = link;
-        }, 500);
+        }, 800);
       }
     });
   });
