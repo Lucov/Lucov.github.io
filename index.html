@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Blog</title>
   <link rel="stylesheet" href="style.css">
+  <script src="health-stats.js" defer></script>
 </head>
 <body>
   <header>
@@ -20,6 +21,14 @@
   </header>
 
   <main class="container">
+    <!-- Health Stats Card -->
+    <div id="health-stats-card">
+      <!-- Health data will be loaded here by JavaScript -->
+      <div style="text-align: center; padding: 2rem; opacity: 0.8;">
+        <p>Loading health data...</p>
+      </div>
+    </div>
+
     <section class="posts">
       <article class="post-preview">
         <h2><a href="posts/welcome.html">Welcome to My Blog</a></h2>
