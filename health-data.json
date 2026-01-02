@@ -1,0 +1,36 @@
+{
+  "lastUpdated": "2026-01-02T08:00:00Z",
+  "dailyStats": {
+    "date": "2026-01-02",
+    "sleep": {
+      "duration": 7.5,
+      "score": 85,
+      "deepSleep": 1.8,
+      "remSleep": 1.2,
+      "lightSleep": 4.5,
+      "bedTime": "23:30",
+      "wakeTime": "07:00"
+    },
+    "heartRate": {
+      "resting": 62,
+      "average": 72,
+      "max": 145,
+      "min": 58
+    },
+    "activity": {
+      "steps": 8543,
+      "calories": 2150,
+      "activeMinutes": 45
+    },
+    "stress": {
+      "average": 35,
+      "level": "Low"
+    }
+  },
+  "weeklyTrends": {
+    "averageSleepScore": 82,
+    "averageSleepDuration": 7.2,
+    "averageRestingHR": 63,
+    "averageSteps": 8200
+  }
+}
