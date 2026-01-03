@@ -1,7 +1,7 @@
 {
-  "lastUpdated": "2026-01-02T08:00:00Z",
+  "lastUpdated": "2026-01-03T04:58:38.011072Z",
   "dailyStats": {
-    "date": "2026-01-02",
+    "date": "2026-01-03",
     "sleep": {
       "duration": 7.5,
       "score": 85,
@@ -15,12 +15,14 @@
       "resting": 62,
       "average": 72,
       "max": 145,
-      "min": 58
+      "min": 58,
+      "weeklyResting": 63
     },
     "activity": {
-      "steps": 8543,
-      "calories": 2150,
-      "activeMinutes": 45
+      "steps": 8000,
+      "calories": 2000,
+      "activeMinutes": 30,
+      "weeklySteps": 8000
     },
     "stress": {
       "average": 35,
@@ -31,6 +33,6 @@
     "averageSleepScore": 82,
     "averageSleepDuration": 7.2,
     "averageRestingHR": 63,
-    "averageSteps": 8200
+    "averageSteps": 8000
   }
 }
