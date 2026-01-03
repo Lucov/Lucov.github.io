@@ -32,6 +32,7 @@ class HealthDataProcessor:
             "dailyStats": {
                 "date": datetime.now().strftime("%Y-%m-%d"),
                 "sleep": {},
+                "energy": {},
                 "heartRate": {},
                 "activity": {},
                 "stress": {}
@@ -61,7 +62,7 @@ class HealthDataProcessor:
             # These are common field names - you may need to adjust based on your export
             self.data["dailyStats"]["sleep"] = {
                 "duration": self._parse_duration(latest.get("Sleep time", "0")),
-                "score": int(latest.get("Sleep score", 85)),
+                "score": int(latest.get("Sleep score", 87)),
                 "deepSleep": self._parse_duration(latest.get("Deep sleep", "0")),
                 "remSleep": self._parse_duration(latest.get("REM sleep", "0")),
                 "lightSleep": self._parse_duration(latest.get("Light sleep", "0")),
@@ -69,13 +70,36 @@ class HealthDataProcessor:
                 "wakeTime": self._parse_time(latest.get("Wake time", "07:00"))
             }
 
+            # Extract energy score if available (may be in same CSV or separate)
+            energy_score = latest.get("Energy score") or latest.get("Energy") or latest.get("energy_score")
+            if energy_score:
+                try:
+                    score = int(energy_score)
+                    level = "High Energy" if score >= 80 else "Good" if score >= 70 else "Moderate" if score >= 60 else "Low"
+                    self.data["dailyStats"]["energy"] = {
+                        "score": score,
+                        "level": level
+                    }
+                except (ValueError, TypeError):
+                    pass
+
             # Calculate weekly average
             recent_records = sleep_records[-7:] if len(sleep_records) >= 7 else sleep_records
-            scores = [int(r.get("Sleep score", 85)) for r in recent_records if r.get("Sleep score")]
+            sleep_scores = [int(r.get("Sleep score", 87)) for r in recent_records if r.get("Sleep score")]
+            energy_scores = []
+            for r in recent_records:
+                e_score = r.get("Energy score") or r.get("Energy") or r.get("energy_score")
+                if e_score:
+                    try:
+                        energy_scores.append(int(e_score))
+                    except (ValueError, TypeError):
+                        pass
             durations = [self._parse_duration(r.get("Sleep time", "0")) for r in recent_records]
 
-            if scores:
-                self.data["weeklyTrends"]["averageSleepScore"] = round(statistics.mean(scores))
+            if sleep_scores:
+                self.data["weeklyTrends"]["averageSleepScore"] = round(statistics.mean(sleep_scores))
+            if energy_scores:
+                self.data["weeklyTrends"]["averageEnergyScore"] = round(statistics.mean(energy_scores))
             if durations:
                 self.data["weeklyTrends"]["averageSleepDuration"] = round(statistics.mean(durations), 1)
 
