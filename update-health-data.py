@@ -29,21 +29,25 @@ class HealthDataProcessor:
     def __init__(self):
         self.data = {
             "lastUpdated": datetime.utcnow().isoformat() + "Z",
+            "dataSource": "Samsung Health CSV",
             "dailyStats": {
                 "date": datetime.now().strftime("%Y-%m-%d"),
-                "sleep": {},
-                "energy": {},
-                "heartRate": {},
-                "activity": {},
-                "stress": {}
             },
             "weeklyTrends": {}
+        }
+        self.diagnostics = {
+            'fetchTime': datetime.utcnow().isoformat() + "Z",
+            'dataProcessed': {},
+            'errors': []
         }
 
     def process_sleep_data(self, filepath: str):
         """Process Samsung Health sleep CSV export"""
         if not Path(filepath).exists():
-            print(f"Warning: Sleep data file not found: {filepath}")
+            error_msg = f"Sleep data file not found: {filepath}"
+            print(f"Warning: {error_msg}")
+            self.diagnostics['errors'].append(error_msg)
+            self.diagnostics['dataProcessed']['sleep'] = False
             return
 
         try:
@@ -52,7 +56,10 @@ class HealthDataProcessor:
                 sleep_records = list(reader)
 
             if not sleep_records:
-                print("No sleep data found")
+                error_msg = "No sleep data found in CSV file"
+                print(f"Warning: {error_msg}")
+                self.diagnostics['errors'].append(error_msg)
+                self.diagnostics['dataProcessed']['sleep'] = False
                 return
 
             # Get most recent sleep record
@@ -103,15 +110,22 @@ class HealthDataProcessor:
             if durations:
                 self.data["weeklyTrends"]["averageSleepDuration"] = round(statistics.mean(durations), 1)
 
+            self.diagnostics['dataProcessed']['sleep'] = True
             print(f"✓ Processed sleep data: {len(sleep_records)} records")
 
         except Exception as e:
-            print(f"Error processing sleep data: {e}")
+            error_msg = f"Error processing sleep data: {e}"
+            print(error_msg)
+            self.diagnostics['errors'].append(error_msg)
+            self.diagnostics['dataProcessed']['sleep'] = False
 
     def process_heart_rate_data(self, filepath: str):
         """Process Samsung Health heart rate CSV export"""
         if not Path(filepath).exists():
-            print(f"Warning: Heart rate data file not found: {filepath}")
+            error_msg = f"Heart rate data file not found: {filepath}"
+            print(f"Warning: {error_msg}")
+            self.diagnostics['errors'].append(error_msg)
+            self.diagnostics['dataProcessed']['heartRate'] = False
             return
 
         try:
@@ -120,7 +134,10 @@ class HealthDataProcessor:
                 hr_records = list(reader)
 
             if not hr_records:
-                print("No heart rate data found")
+                error_msg = "No heart rate data found in CSV file"
+                print(f"Warning: {error_msg}")
+                self.diagnostics['errors'].append(error_msg)
+                self.diagnostics['dataProcessed']['heartRate'] = False
                 return
 
             # Get today's records
@@ -147,15 +164,22 @@ class HealthDataProcessor:
                         resting_hrs = sorted_hr[:len(sorted_hr)//10] if len(sorted_hr) > 10 else sorted_hr
                         self.data["weeklyTrends"]["averageRestingHR"] = round(statistics.mean(resting_hrs))
 
+            self.diagnostics['dataProcessed']['heartRate'] = True
             print(f"✓ Processed heart rate data: {len(hr_records)} records")
 
         except Exception as e:
-            print(f"Error processing heart rate data: {e}")
+            error_msg = f"Error processing heart rate data: {e}"
+            print(error_msg)
+            self.diagnostics['errors'].append(error_msg)
+            self.diagnostics['dataProcessed']['heartRate'] = False
 
     def process_activity_data(self, filepath: str):
         """Process Samsung Health steps/activity CSV export"""
         if not Path(filepath).exists():
-            print(f"Warning: Activity data file not found: {filepath}")
+            error_msg = f"Activity data file not found: {filepath}"
+            print(f"Warning: {error_msg}")
+            self.diagnostics['errors'].append(error_msg)
+            self.diagnostics['dataProcessed']['activity'] = False
             return
 
         try:
@@ -164,7 +188,10 @@ class HealthDataProcessor:
                 activity_records = list(reader)
 
             if not activity_records:
-                print("No activity data found")
+                error_msg = "No activity data found in CSV file"
+                print(f"Warning: {error_msg}")
+                self.diagnostics['errors'].append(error_msg)
+                self.diagnostics['dataProcessed']['activity'] = False
                 return
 
             latest = activity_records[-1]
@@ -181,20 +208,22 @@ class HealthDataProcessor:
             if steps:
                 self.data["weeklyTrends"]["averageSteps"] = round(statistics.mean(steps))
 
+            self.diagnostics['dataProcessed']['activity'] = True
             print(f"✓ Processed activity data: {len(activity_records)} records")
 
         except Exception as e:
-            print(f"Error processing activity data: {e}")
+            error_msg = f"Error processing activity data: {e}"
+            print(error_msg)
+            self.diagnostics['errors'].append(error_msg)
+            self.diagnostics['dataProcessed']['activity'] = False
 
     def process_stress_data(self, filepath: str):
         """Process Samsung Health stress CSV export"""
         if not Path(filepath).exists():
-            print(f"Warning: Stress data file not found: {filepath}")
-            # Set default values
-            self.data["dailyStats"]["stress"] = {
-                "average": 35,
-                "level": "Low"
-            }
+            error_msg = f"Stress data file not found: {filepath}"
+            print(f"Warning: {error_msg}")
+            self.diagnostics['errors'].append(error_msg)
+            self.diagnostics['dataProcessed']['stress'] = False
             return
 
         try:
@@ -203,7 +232,10 @@ class HealthDataProcessor:
                 stress_records = list(reader)
 
             if not stress_records:
-                self.data["dailyStats"]["stress"] = {"average": 35, "level": "Low"}
+                error_msg = "No stress data found in CSV file"
+                print(f"Warning: {error_msg}")
+                self.diagnostics['errors'].append(error_msg)
+                self.diagnostics['dataProcessed']['stress'] = False
                 return
 
             today = datetime.now().strftime("%Y-%m-%d")
@@ -220,11 +252,14 @@ class HealthDataProcessor:
                         "level": level
                     }
 
+            self.diagnostics['dataProcessed']['stress'] = True
             print(f"✓ Processed stress data: {len(stress_records)} records")
 
         except Exception as e:
-            print(f"Error processing stress data: {e}")
-            self.data["dailyStats"]["stress"] = {"average": 35, "level": "Low"}
+            error_msg = f"Error processing stress data: {e}"
+            print(error_msg)
+            self.diagnostics['errors'].append(error_msg)
+            self.diagnostics['dataProcessed']['stress'] = False
 
     def _parse_duration(self, duration_str: str) -> float:
         """Parse duration string to hours (e.g., '7h 30m' -> 7.5)"""
@@ -268,13 +303,44 @@ class HealthDataProcessor:
 
     def save_json(self, output_path: str = "health-data.json"):
         """Save processed data to JSON file"""
+        # Validate that we have at least some data
+        has_data = any([
+            'sleep' in self.data['dailyStats'],
+            'heartRate' in self.data['dailyStats'],
+            'activity' in self.data['dailyStats'],
+            'energy' in self.data['dailyStats']
+        ])
+
+        if not has_data:
+            error_msg = "No health data was successfully processed. File will not be updated."
+            print(f"\n✗ {error_msg}")
+            self.diagnostics['errors'].append(error_msg)
+            self.save_diagnostics(success=False)
+            return False
+
         try:
             with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(self.data, f, indent=2)
             print(f"\n✓ Health data saved to {output_path}")
             print(f"  Last updated: {self.data['lastUpdated']}")
+            self.save_diagnostics(success=True)
+            return True
         except Exception as e:
-            print(f"Error saving JSON: {e}")
+            error_msg = f"Error saving JSON: {e}"
+            print(error_msg)
+            self.diagnostics['errors'].append(error_msg)
+            self.save_diagnostics(success=False)
+            return False
+
+    def save_diagnostics(self, success: bool):
+        """Save diagnostic information"""
+        self.diagnostics['success'] = success
+        try:
+            with open('health-data-diagnostics.json', 'w', encoding='utf-8') as f:
+                json.dump(self.diagnostics, f, indent=2)
+            print(f"📊 Diagnostics saved to health-data-diagnostics.json")
+        except Exception as e:
+            print(f"Warning: Could not save diagnostics: {e}")
 
 
 def main():
@@ -331,8 +397,10 @@ How to export from Samsung Health:
     if args.stress:
         processor.process_stress_data(args.stress)
 
-    processor.save_json(args.output)
-    print("\n✓ Done! Refresh your blog to see updated health stats.")
+    if processor.save_json(args.output):
+        print("\n✓ Done! Refresh your blog to see updated health stats.")
+    else:
+        print("\n✗ Failed to update health data. Check errors above.")
 
 
 if __name__ == "__main__":

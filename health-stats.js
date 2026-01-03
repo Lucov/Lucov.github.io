@@ -10,10 +10,64 @@ class HealthStats {
       const response = await fetch(this.dataUrl);
       if (!response.ok) throw new Error('Failed to load health data');
       const data = await response.json();
+
+      // Validate data freshness - only show if updated within last 48 hours
+      if (!this.isDataFresh(data)) {
+        console.warn('Health data is stale or missing');
+        this.hideHealthStats();
+        return;
+      }
+
+      // Validate that we have at least some real data
+      if (!this.hasValidData(data)) {
+        console.warn('No valid health data available');
+        this.hideHealthStats();
+        return;
+      }
+
       this.renderStats(data);
     } catch (error) {
       console.error('Error loading health data:', error);
-      this.renderError();
+      this.hideHealthStats();
+    }
+  }
+
+  isDataFresh(data) {
+    if (!data.lastUpdated) {
+      return false;
+    }
+
+    const lastUpdate = new Date(data.lastUpdated);
+    const now = new Date();
+    const hoursSinceUpdate = (now - lastUpdate) / (1000 * 60 * 60);
+
+    // Data must be updated within last 48 hours (2 days)
+    const isRecent = hoursSinceUpdate <= 48;
+
+    if (!isRecent) {
+      console.log(`Health data is ${Math.round(hoursSinceUpdate)} hours old (max: 48 hours)`);
+    }
+
+    return isRecent;
+  }
+
+  hasValidData(data) {
+    // Check if we have any actual data fields
+    const dailyStats = data.dailyStats || {};
+
+    const hasSleep = dailyStats.sleep?.score != null;
+    const hasHeartRate = dailyStats.heartRate?.resting != null;
+    const hasActivity = dailyStats.activity?.steps != null;
+    const hasEnergy = dailyStats.energy?.score != null;
+
+    // Must have at least one valid data field
+    return hasSleep || hasHeartRate || hasActivity || hasEnergy;
+  }
+
+  hideHealthStats() {
+    // Hide the entire health stats card when no valid data is available
+    if (this.container) {
+      this.container.style.display = 'none';
     }
   }
 
@@ -177,13 +231,6 @@ class HealthStats {
     `;
   }
 
-  renderError() {
-    this.container.innerHTML = `
-      <div class="health-error">
-        <p>Unable to load health data. Please check back later.</p>
-      </div>
-    `;
-  }
 }
 
 // Initialize when DOM is ready

@@ -102,14 +102,14 @@ class HealthConnectClient:
             data = response.json()
 
             if not data.get('session'):
-                print("Warning: No sleep data found")
-                return self._default_sleep_data()
+                print("Warning: No sleep data found from API")
+                return None
 
             return self._process_sleep_data(data['session'])
 
         except requests.exceptions.RequestException as e:
             print(f"Error fetching sleep data: {e}")
-            return self._default_sleep_data()
+            return None
 
     def get_heart_rate_data(self, days: int = 1) -> Dict[str, Any]:
         """Fetch heart rate data from Health Connect"""
@@ -141,7 +141,7 @@ class HealthConnectClient:
 
         except requests.exceptions.RequestException as e:
             print(f"Error fetching heart rate data: {e}")
-            return self._default_heart_rate_data()
+            return None
 
     def get_activity_data(self, days: int = 1) -> Dict[str, Any]:
         """Fetch activity/steps data from Health Connect"""
@@ -175,12 +175,12 @@ class HealthConnectClient:
 
         except requests.exceptions.RequestException as e:
             print(f"Error fetching activity data: {e}")
-            return self._default_activity_data()
+            return None
 
     def _process_sleep_data(self, sessions: List[Dict]) -> Dict[str, Any]:
         """Process raw sleep session data"""
         if not sessions:
-            return self._default_sleep_data()
+            return None
 
         # Get most recent sleep session
         latest = sessions[-1]
@@ -252,7 +252,8 @@ class HealthConnectClient:
                             hr_values.append(int(hr))
 
         if not hr_values:
-            return self._default_heart_rate_data()
+            print("Warning: No heart rate values found in API response")
+            return None
 
         resting = min(hr_values)
 
@@ -283,108 +284,153 @@ class HealthConnectClient:
                         elif 'active_minutes' in data_type:
                             active_minutes += int(value.get('intVal', 0))
 
+        if steps == 0 and calories == 0 and active_minutes == 0:
+            print("Warning: No activity data found in API response")
+            return None
+
         return {
-            'steps': steps or 8000,
-            'calories': calories or 2000,
-            'activeMinutes': active_minutes or 30,
-            'weeklySteps': steps or 8000  # Simplified
+            'steps': steps,
+            'calories': calories,
+            'activeMinutes': active_minutes,
+            'weeklySteps': steps  # Simplified
         }
 
-    def _default_sleep_data(self) -> Dict:
-        return {
-            'daily': {
-                'duration': 7.5,
-                'score': 87,
-                'deepSleep': 1.8,
-                'remSleep': 1.2,
-                'lightSleep': 4.5,
-                'bedTime': '23:30',
-                'wakeTime': '07:00'
-            },
-            'energy': {
-                'score': 85,
-                'level': 'High Energy'
-            },
-            'weekly': {
-                'averageSleepScore': 84,
-                'averageEnergyScore': 82,
-                'averageSleepDuration': 7.2
-            }
-        }
-
-    def _default_heart_rate_data(self) -> Dict:
-        return {
-            'resting': 62,
-            'average': 72,
-            'max': 145,
-            'min': 58,
-            'weeklyResting': 63
-        }
-
-    def _default_activity_data(self) -> Dict:
-        return {
-            'steps': 8000,
-            'calories': 2000,
-            'activeMinutes': 30,
-            'weeklySteps': 8200
-        }
 
 
 def main():
     print("Health Connect Data Fetcher")
     print("=" * 50)
 
+    # Diagnostic tracking
+    diagnostics = {
+        'fetchTime': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+        'dataFetched': {},
+        'errors': []
+    }
+
     # Initialize client
-    client = HealthConnectClient()
-    client.authenticate()
+    try:
+        client = HealthConnectClient()
+        client.authenticate()
+    except Exception as e:
+        error_msg = f"Authentication failed: {e}"
+        print(f"\n✗ {error_msg}")
+        diagnostics['errors'].append(error_msg)
+        save_diagnostics(diagnostics, success=False)
+        exit(1)
 
-    print("\nFetching health data...")
+    print("\nFetching health data from API...")
 
-    # Fetch all data
+    # Fetch all data (returns None if fails)
     sleep_data = client.get_sleep_data(days=7)
     hr_data = client.get_heart_rate_data(days=1)
     activity_data = client.get_activity_data(days=1)
 
-    # Stress data is not available in standard Health Connect API
-    # Using default values
-    stress_data = {
-        'average': 35,
-        'level': 'Low'
-    }
+    # Track what was successfully fetched
+    diagnostics['dataFetched']['sleep'] = sleep_data is not None
+    diagnostics['dataFetched']['heartRate'] = hr_data is not None
+    diagnostics['dataFetched']['activity'] = activity_data is not None
 
-    # Build final JSON structure
+    # Validate that we got at least SOME real data
+    if not sleep_data and not hr_data and not activity_data:
+        error_msg = "Failed to fetch any health data from API. No data sources returned valid data."
+        print(f"\n✗ {error_msg}")
+        print("   Health stats will NOT be updated - no placeholder data will be shown.")
+        print("   Check that:")
+        print("   1. Samsung Health is syncing to Google Fit/Health Connect")
+        print("   2. Your Google account has fitness data permissions")
+        print("   3. Data exists for the requested time period")
+        diagnostics['errors'].append(error_msg)
+        save_diagnostics(diagnostics, success=False)
+        exit(1)
+
+    # Build health data structure - only include data that was successfully fetched
+    now = datetime.now(timezone.utc)
     health_data = {
-        'lastUpdated': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+        'lastUpdated': now.isoformat().replace('+00:00', 'Z'),
+        'dataSource': 'Health Connect API',
         'dailyStats': {
             'date': datetime.now().strftime('%Y-%m-%d'),
-            'sleep': sleep_data['daily'],
-            'energy': sleep_data.get('energy', {'score': 85, 'level': 'Good'}),
-            'heartRate': hr_data,
-            'activity': activity_data,
-            'stress': stress_data
         },
-        'weeklyTrends': {
-            'averageSleepScore': sleep_data['weekly']['averageSleepScore'],
-            'averageEnergyScore': sleep_data['weekly'].get('averageEnergyScore', 82),
-            'averageSleepDuration': sleep_data['weekly']['averageSleepDuration'],
-            'averageRestingHR': hr_data.get('weeklyResting', hr_data['resting']),
-            'averageSteps': activity_data.get('weeklySteps', activity_data['steps'])
-        }
+        'weeklyTrends': {}
     }
+
+    # Add sleep data if available
+    if sleep_data:
+        health_data['dailyStats']['sleep'] = sleep_data['daily']
+        if 'energy' in sleep_data:
+            health_data['dailyStats']['energy'] = sleep_data['energy']
+        if 'weekly' in sleep_data:
+            if 'averageSleepScore' in sleep_data['weekly']:
+                health_data['weeklyTrends']['averageSleepScore'] = sleep_data['weekly']['averageSleepScore']
+            if 'averageEnergyScore' in sleep_data['weekly']:
+                health_data['weeklyTrends']['averageEnergyScore'] = sleep_data['weekly']['averageEnergyScore']
+            if 'averageSleepDuration' in sleep_data['weekly']:
+                health_data['weeklyTrends']['averageSleepDuration'] = sleep_data['weekly']['averageSleepDuration']
+        print("  ✓ Sleep data fetched")
+    else:
+        diagnostics['errors'].append("Sleep data not available from API")
+
+    # Add heart rate data if available
+    if hr_data:
+        health_data['dailyStats']['heartRate'] = hr_data
+        if 'weeklyResting' in hr_data:
+            health_data['weeklyTrends']['averageRestingHR'] = hr_data['weeklyResting']
+        print("  ✓ Heart rate data fetched")
+    else:
+        diagnostics['errors'].append("Heart rate data not available from API")
+
+    # Add activity data if available
+    if activity_data:
+        health_data['dailyStats']['activity'] = activity_data
+        if 'weeklySteps' in activity_data:
+            health_data['weeklyTrends']['averageSteps'] = activity_data['weeklySteps']
+        print("  ✓ Activity data fetched")
+    else:
+        diagnostics['errors'].append("Activity data not available from API")
+
+    # Note: Stress data not available in Health Connect API
+    # We don't include it unless it's actually available
 
     # Save to JSON file
     output_file = 'health-data.json'
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(health_data, f, indent=2)
+    try:
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(health_data, f, indent=2)
+        print(f"\n✓ Health data saved to {output_file}")
+    except Exception as e:
+        error_msg = f"Failed to save health data: {e}"
+        print(f"\n✗ {error_msg}")
+        diagnostics['errors'].append(error_msg)
+        save_diagnostics(diagnostics, success=False)
+        exit(1)
 
-    print(f"\n✓ Health data updated successfully!")
-    print(f"  Sleep Score: {sleep_data['daily']['score']}")
-    print(f"  Resting HR: {hr_data['resting']} bpm")
-    print(f"  Steps: {activity_data['steps']:,}")
-    print(f"  File: {output_file}")
+    # Print summary
+    print(f"\nData Summary:")
+    if sleep_data and 'daily' in sleep_data:
+        print(f"  Sleep Score: {sleep_data['daily'].get('score', 'N/A')}")
+    if hr_data and 'resting' in hr_data:
+        print(f"  Resting HR: {hr_data['resting']} bpm")
+    if activity_data and 'steps' in activity_data:
+        print(f"  Steps: {activity_data['steps']:,}")
     print(f"  Last updated: {health_data['lastUpdated']}")
 
-    print("\n✓ Done! Your blog will show the latest data.")
+    # Save diagnostics
+    save_diagnostics(diagnostics, success=True)
+
+    print("\n✓ Done! Your blog will show the latest real data (no placeholders).")
+
+
+def save_diagnostics(diagnostics: Dict[str, Any], success: bool):
+    """Save diagnostic information to help track data fetch status"""
+    diagnostics['success'] = success
+
+    try:
+        with open('health-data-diagnostics.json', 'w', encoding='utf-8') as f:
+            json.dump(diagnostics, f, indent=2)
+        print(f"\n📊 Diagnostics saved to health-data-diagnostics.json")
+    except Exception as e:
+        print(f"Warning: Could not save diagnostics: {e}")
 
 
 if __name__ == "__main__":
