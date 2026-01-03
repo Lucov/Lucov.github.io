@@ -18,7 +18,7 @@ Usage:
 
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List
 import statistics
 
@@ -354,7 +354,7 @@ def main():
 
     # Build final JSON structure
     health_data = {
-        'lastUpdated': datetime.now(datetime.UTC).isoformat().replace('+00:00', 'Z'),
+        'lastUpdated': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
         'dailyStats': {
             'date': datetime.now().strftime('%Y-%m-%d'),
             'sleep': sleep_data['daily'],
