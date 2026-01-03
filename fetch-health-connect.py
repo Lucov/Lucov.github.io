@@ -101,24 +101,14 @@ class HealthConnectClient:
             response.raise_for_status()
             data = response.json()
 
-            # Debug: Print what we got from the API
-            print(f"DEBUG: API Response: {json.dumps(data, indent=2)}")
-
             if not data.get('session'):
                 print("Warning: No sleep data found")
-                print("This might mean:")
-                print("  1. Health Connect hasn't synced yet (wait 10-15 minutes)")
-                print("  2. Google Fitness API can't access Health Connect data")
-                print("  3. Try CSV export method instead for immediate results")
                 return self._default_sleep_data()
 
             return self._process_sleep_data(data['session'])
 
         except requests.exceptions.RequestException as e:
             print(f"Error fetching sleep data: {e}")
-            if hasattr(e, 'response') and e.response is not None:
-                print(f"Response status: {e.response.status_code}")
-                print(f"Response body: {e.response.text}")
             return self._default_sleep_data()
 
     def get_heart_rate_data(self, days: int = 1) -> Dict[str, Any]:
