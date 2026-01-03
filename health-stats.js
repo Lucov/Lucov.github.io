@@ -24,6 +24,13 @@ class HealthStats {
     return { text: 'Poor', color: '#ef4444' };
   }
 
+  getEnergyLevel(score) {
+    if (score >= 80) return { text: 'High Energy', color: '#10b981' };
+    if (score >= 70) return { text: 'Good', color: '#3b82f6' };
+    if (score >= 60) return { text: 'Moderate', color: '#f59e0b' };
+    return { text: 'Low', color: '#ef4444' };
+  }
+
   getHeartRateStatus(resting) {
     if (resting < 60) return { text: 'Athletic', color: '#10b981' };
     if (resting <= 70) return { text: 'Excellent', color: '#3b82f6' };
@@ -40,6 +47,7 @@ class HealthStats {
   renderStats(data) {
     const { dailyStats, weeklyTrends, lastUpdated } = data;
     const sleepQuality = this.getSleepQuality(dailyStats.sleep.score);
+    const energyLevel = dailyStats.energy ? this.getEnergyLevel(dailyStats.energy.score) : null;
     const hrStatus = this.getHeartRateStatus(dailyStats.heartRate.resting);
 
     const updateDate = new Date(lastUpdated).toLocaleDateString('en-US', {
@@ -56,7 +64,7 @@ class HealthStats {
       </div>
 
       <div class="health-grid">
-        <div class="health-stat primary">
+        <div class="health-stat">
           <div class="stat-icon">😴</div>
           <div class="stat-content">
             <div class="stat-label">Sleep Score</div>
@@ -68,6 +76,18 @@ class HealthStats {
             </div>
           </div>
         </div>
+
+        ${energyLevel ? `
+        <div class="health-stat">
+          <div class="stat-icon">⚡</div>
+          <div class="stat-content">
+            <div class="stat-label">Energy Score</div>
+            <div class="stat-value" style="color: ${energyLevel.color}">${dailyStats.energy.score}</div>
+            <div class="stat-meta">${energyLevel.text}</div>
+            <div class="stat-detail">${dailyStats.energy.level || ''}</div>
+          </div>
+        </div>
+        ` : ''}
 
         <div class="health-stat">
           <div class="stat-icon">❤️</div>
@@ -106,6 +126,12 @@ class HealthStats {
             <span class="trend-label">Sleep Score</span>
             <span class="trend-value">${weeklyTrends.averageSleepScore}</span>
           </div>
+          ${weeklyTrends.averageEnergyScore ? `
+          <div class="trend-item">
+            <span class="trend-label">Energy Score</span>
+            <span class="trend-value">${weeklyTrends.averageEnergyScore}</span>
+          </div>
+          ` : ''}
           <div class="trend-item">
             <span class="trend-label">Sleep Duration</span>
             <span class="trend-value">${this.formatTime(weeklyTrends.averageSleepDuration)}</span>
