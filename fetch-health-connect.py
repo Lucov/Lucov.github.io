@@ -195,31 +195,46 @@ class HealthConnectClient:
         light_sleep = duration_hours - deep_sleep - rem_sleep
 
         # Calculate sleep score (simplified algorithm)
-        score = min(100, int(
+        sleep_score = min(100, int(
             (duration_hours / 8 * 40) +  # Duration component
             (deep_sleep / duration_hours * 30) +  # Deep sleep quality
             (rem_sleep / duration_hours * 30)  # REM quality
         ))
 
+        # Calculate energy score based on sleep quality and duration
+        # Energy is typically lower than sleep score (you wake up building energy)
+        energy_score = max(0, min(100, int(
+            sleep_score * 0.85 +  # Base on sleep quality
+            (duration_hours / 8 * 15)  # Duration bonus
+        )))
+
+        energy_level = "High Energy" if energy_score >= 80 else "Good" if energy_score >= 70 else "Moderate" if energy_score >= 60 else "Low"
+
         start_time = datetime.fromtimestamp(start_ms / 1000)
         end_time = datetime.fromtimestamp(end_ms / 1000)
 
         # Calculate weekly averages
-        scores = [score]  # Would need to process all sessions for true average
+        sleep_scores = [sleep_score]  # Would need to process all sessions for true average
+        energy_scores = [energy_score]
         durations = [duration_hours]
 
         return {
             'daily': {
                 'duration': round(duration_hours, 1),
-                'score': score,
+                'score': sleep_score,
                 'deepSleep': round(deep_sleep, 1),
                 'remSleep': round(rem_sleep, 1),
                 'lightSleep': round(light_sleep, 1),
                 'bedTime': start_time.strftime('%H:%M'),
                 'wakeTime': end_time.strftime('%H:%M')
             },
+            'energy': {
+                'score': energy_score,
+                'level': energy_level
+            },
             'weekly': {
-                'averageSleepScore': round(statistics.mean(scores)),
+                'averageSleepScore': round(statistics.mean(sleep_scores)),
+                'averageEnergyScore': round(statistics.mean(energy_scores)),
                 'averageSleepDuration': round(statistics.mean(durations), 1)
             }
         }
@@ -279,15 +294,20 @@ class HealthConnectClient:
         return {
             'daily': {
                 'duration': 7.5,
-                'score': 85,
+                'score': 87,
                 'deepSleep': 1.8,
                 'remSleep': 1.2,
                 'lightSleep': 4.5,
                 'bedTime': '23:30',
                 'wakeTime': '07:00'
             },
+            'energy': {
+                'score': 85,
+                'level': 'High Energy'
+            },
             'weekly': {
-                'averageSleepScore': 82,
+                'averageSleepScore': 84,
+                'averageEnergyScore': 82,
                 'averageSleepDuration': 7.2
             }
         }
@@ -334,16 +354,18 @@ def main():
 
     # Build final JSON structure
     health_data = {
-        'lastUpdated': datetime.utcnow().isoformat() + 'Z',
+        'lastUpdated': datetime.now(datetime.UTC).isoformat().replace('+00:00', 'Z'),
         'dailyStats': {
             'date': datetime.now().strftime('%Y-%m-%d'),
             'sleep': sleep_data['daily'],
+            'energy': sleep_data.get('energy', {'score': 85, 'level': 'Good'}),
             'heartRate': hr_data,
             'activity': activity_data,
             'stress': stress_data
         },
         'weeklyTrends': {
             'averageSleepScore': sleep_data['weekly']['averageSleepScore'],
+            'averageEnergyScore': sleep_data['weekly'].get('averageEnergyScore', 82),
             'averageSleepDuration': sleep_data['weekly']['averageSleepDuration'],
             'averageRestingHR': hr_data.get('weeklyResting', hr_data['resting']),
             'averageSteps': activity_data.get('weeklySteps', activity_data['steps'])
