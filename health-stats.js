@@ -46,9 +46,17 @@ class HealthStats {
 
   renderStats(data) {
     const { dailyStats, weeklyTrends, lastUpdated } = data;
-    const sleepQuality = this.getSleepQuality(dailyStats.sleep.score);
-    const energyLevel = dailyStats.energy ? this.getEnergyLevel(dailyStats.energy.score) : null;
-    const hrStatus = this.getHeartRateStatus(dailyStats.heartRate.resting);
+
+    // Safely check for available data
+    const hasSleep = dailyStats?.sleep?.score != null;
+    const hasEnergy = dailyStats?.energy?.score != null;
+    const hasHeartRate = dailyStats?.heartRate?.resting != null;
+    const hasActivity = dailyStats?.activity?.steps != null;
+    const hasStress = dailyStats?.stress?.average != null;
+
+    const sleepQuality = hasSleep ? this.getSleepQuality(dailyStats.sleep.score) : null;
+    const energyLevel = hasEnergy ? this.getEnergyLevel(dailyStats.energy.score) : null;
+    const hrStatus = hasHeartRate ? this.getHeartRateStatus(dailyStats.heartRate.resting) : null;
 
     const updateDate = new Date(lastUpdated).toLocaleDateString('en-US', {
       month: 'short',
@@ -64,88 +72,108 @@ class HealthStats {
       </div>
 
       <div class="health-grid">
+        ${hasSleep ? `
         <div class="health-stat">
           <div class="stat-icon">😴</div>
           <div class="stat-content">
             <div class="stat-label">Sleep Score</div>
             <div class="stat-value" style="color: ${sleepQuality.color}">${dailyStats.sleep.score}</div>
             <div class="stat-meta">${sleepQuality.text} • ${this.formatTime(dailyStats.sleep.duration)}</div>
+            ${dailyStats.sleep.deepSleep != null && dailyStats.sleep.remSleep != null ? `
             <div class="stat-detail">
               <span>Deep: ${this.formatTime(dailyStats.sleep.deepSleep)}</span>
               <span>REM: ${this.formatTime(dailyStats.sleep.remSleep)}</span>
             </div>
+            ` : ''}
           </div>
         </div>
+        ` : ''}
 
-        ${energyLevel ? `
+        ${hasEnergy ? `
         <div class="health-stat">
           <div class="stat-icon">⚡</div>
           <div class="stat-content">
             <div class="stat-label">Energy Score</div>
             <div class="stat-value" style="color: ${energyLevel.color}">${dailyStats.energy.score}</div>
             <div class="stat-meta">${energyLevel.text}</div>
-            <div class="stat-detail">${dailyStats.energy.level || ''}</div>
+            ${dailyStats.energy.level ? `<div class="stat-detail">${dailyStats.energy.level}</div>` : ''}
           </div>
         </div>
         ` : ''}
 
+        ${hasHeartRate ? `
         <div class="health-stat">
           <div class="stat-icon">❤️</div>
           <div class="stat-content">
             <div class="stat-label">Resting Heart Rate</div>
             <div class="stat-value" style="color: ${hrStatus.color}">${dailyStats.heartRate.resting} <span class="unit">bpm</span></div>
             <div class="stat-meta">${hrStatus.text}</div>
-            <div class="stat-detail">Avg: ${dailyStats.heartRate.average} bpm</div>
+            ${dailyStats.heartRate.average ? `<div class="stat-detail">Avg: ${dailyStats.heartRate.average} bpm</div>` : ''}
           </div>
         </div>
+        ` : ''}
 
+        ${hasActivity ? `
         <div class="health-stat">
           <div class="stat-icon">👟</div>
           <div class="stat-content">
             <div class="stat-label">Steps</div>
             <div class="stat-value">${dailyStats.activity.steps.toLocaleString()}</div>
-            <div class="stat-meta">${dailyStats.activity.activeMinutes} active min</div>
-            <div class="stat-detail">${dailyStats.activity.calories} cal</div>
+            ${dailyStats.activity.activeMinutes ? `<div class="stat-meta">${dailyStats.activity.activeMinutes} active min</div>` : ''}
+            ${dailyStats.activity.calories ? `<div class="stat-detail">${dailyStats.activity.calories} cal</div>` : ''}
           </div>
         </div>
+        ` : ''}
 
+        ${hasStress ? `
         <div class="health-stat">
           <div class="stat-icon">🧘</div>
           <div class="stat-content">
             <div class="stat-label">Stress Level</div>
             <div class="stat-value">${dailyStats.stress.average} <span class="unit">/100</span></div>
-            <div class="stat-meta">${dailyStats.stress.level}</div>
+            ${dailyStats.stress.level ? `<div class="stat-meta">${dailyStats.stress.level}</div>` : ''}
           </div>
         </div>
+        ` : ''}
       </div>
 
+      ${weeklyTrends ? `
       <div class="health-trends">
         <div class="trend-title">7-Day Averages</div>
         <div class="trend-grid">
+          ${weeklyTrends.averageSleepScore != null ? `
           <div class="trend-item">
             <span class="trend-label">Sleep Score</span>
             <span class="trend-value">${weeklyTrends.averageSleepScore}</span>
           </div>
-          ${weeklyTrends.averageEnergyScore ? `
+          ` : ''}
+          ${weeklyTrends.averageEnergyScore != null ? `
           <div class="trend-item">
             <span class="trend-label">Energy Score</span>
             <span class="trend-value">${weeklyTrends.averageEnergyScore}</span>
           </div>
           ` : ''}
+          ${weeklyTrends.averageSleepDuration != null ? `
           <div class="trend-item">
             <span class="trend-label">Sleep Duration</span>
             <span class="trend-value">${this.formatTime(weeklyTrends.averageSleepDuration)}</span>
           </div>
+          ` : ''}
+          ${weeklyTrends.averageRestingHR != null ? `
           <div class="trend-item">
             <span class="trend-label">Resting HR</span>
             <span class="trend-value">${weeklyTrends.averageRestingHR} bpm</span>
           </div>
+          ` : ''}
+          ${weeklyTrends.averageSteps != null ? `
           <div class="trend-item">
             <span class="trend-label">Daily Steps</span>
             <span class="trend-value">${weeklyTrends.averageSteps.toLocaleString()}</span>
           </div>
+          ` : ''}
         </div>
       </div>
+      ` : ''}
     `;
   }
 
