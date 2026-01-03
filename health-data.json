@@ -1,32 +1,32 @@
 {
-  "lastUpdated": "2026-01-03T04:58:38.011072Z",
+  "lastUpdated": "2026-01-03T05:41:47.384641Z",
   "dailyStats": {
     "date": "2026-01-03",
     "sleep": {
-      "duration": 7.5,
-      "score": 87,
-      "deepSleep": 1.8,
-      "remSleep": 1.2,
+      "duration": 6.9,
+      "score": 45,
+      "deepSleep": 1.4,
+      "remSleep": 1.0,
       "lightSleep": 4.5,
-      "bedTime": "23:30",
-      "wakeTime": "07:00"
+      "bedTime": "02:09",
+      "wakeTime": "09:04"
     },
     "energy": {
-      "score": 85,
-      "level": "Good"
+      "score": 51,
+      "level": "Low"
     },
     "heartRate": {
-      "resting": 62,
-      "average": 72,
-      "max": 145,
-      "min": 58,
-      "weeklyResting": 63
+      "resting": 57,
+      "average": 86,
+      "max": 120,
+      "min": 57,
+      "weeklyResting": 57
     },
     "activity": {
-      "steps": 8000,
-      "calories": 2000,
+      "steps": 6224,
+      "calories": 1576,
       "activeMinutes": 30,
-      "weeklySteps": 8000
+      "weeklySteps": 6224
     },
     "stress": {
       "average": 35,
@@ -34,10 +34,10 @@
     }
   },
   "weeklyTrends": {
-    "averageSleepScore": 84,
-    "averageEnergyScore": 82,
-    "averageSleepDuration": 7.2,
-    "averageRestingHR": 63,
-    "averageSteps": 8000
+    "averageSleepScore": 45,
+    "averageEnergyScore": 51,
+    "averageSleepDuration": 6.9,
+    "averageRestingHR": 57,
+    "averageSteps": 6224
   }
 }
