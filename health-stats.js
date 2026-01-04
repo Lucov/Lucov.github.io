@@ -3,65 +3,152 @@ class HealthStats {
   constructor() {
     this.dataUrl = 'health-data.json';
     this.container = document.getElementById('health-stats-card');
+    this.debug = false; // Set to true for verbose logging
+    this.maxDataAgeHours = 48;
+  }
+
+  log(message, data = null) {
+    if (this.debug) {
+      if (data) {
+        console.log(`[HealthStats] ${message}`, data);
+      } else {
+        console.log(`[HealthStats] ${message}`);
+      }
+    }
   }
 
   async loadData() {
+    this.log('Starting data load...');
+
     try {
-      const response = await fetch(this.dataUrl);
-      if (!response.ok) throw new Error('Failed to load health data');
+      // Add cache-busting parameter to avoid stale cached data
+      const cacheBuster = `?_t=${Date.now()}`;
+      const response = await fetch(this.dataUrl + cacheBuster);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to load health data`);
+      }
+
       const data = await response.json();
+      this.log('Data fetched successfully', data);
 
       // Validate data freshness - only show if updated within last 48 hours
-      if (!this.isDataFresh(data)) {
-        console.warn('Health data is stale or missing');
-        this.hideHealthStats();
+      const freshnessCheck = this.checkDataFreshness(data);
+      if (!freshnessCheck.isFresh) {
+        console.warn(`Health data is stale: ${freshnessCheck.message}`);
+        this.showError('Data is outdated', freshnessCheck.message);
         return;
       }
 
       // Validate that we have at least some real data
-      if (!this.hasValidData(data)) {
-        console.warn('No valid health data available');
-        this.hideHealthStats();
+      const validationResult = this.validateData(data);
+      if (!validationResult.isValid) {
+        console.warn(`No valid health data: ${validationResult.message}`);
+        this.showError('No data available', validationResult.message);
         return;
       }
 
+      this.log('Data validation passed, rendering...');
       this.renderStats(data);
+
     } catch (error) {
       console.error('Error loading health data:', error);
-      this.hideHealthStats();
+      this.showError('Failed to load', error.message);
     }
   }
 
-  isDataFresh(data) {
+  checkDataFreshness(data) {
     if (!data.lastUpdated) {
-      return false;
+      return {
+        isFresh: false,
+        message: 'No timestamp found in data',
+        hoursSinceUpdate: null
+      };
     }
 
+    // Parse the UTC timestamp correctly
     const lastUpdate = new Date(data.lastUpdated);
-    const now = new Date();
-    const hoursSinceUpdate = (now - lastUpdate) / (1000 * 60 * 60);
-
-    // Data must be updated within last 48 hours (2 days)
-    const isRecent = hoursSinceUpdate <= 48;
-
-    if (!isRecent) {
-      console.log(`Health data is ${Math.round(hoursSinceUpdate)} hours old (max: 48 hours)`);
+    if (isNaN(lastUpdate.getTime())) {
+      return {
+        isFresh: false,
+        message: `Invalid timestamp: ${data.lastUpdated}`,
+        hoursSinceUpdate: null
+      };
     }
 
-    return isRecent;
+    // Use UTC for comparison to avoid timezone issues
+    const nowUtc = Date.now();
+    const lastUpdateUtc = lastUpdate.getTime();
+    const hoursSinceUpdate = (nowUtc - lastUpdateUtc) / (1000 * 60 * 60);
+
+    this.log(`Data age: ${hoursSinceUpdate.toFixed(1)} hours (max: ${this.maxDataAgeHours})`);
+
+    const isFresh = hoursSinceUpdate <= this.maxDataAgeHours;
+
+    return {
+      isFresh,
+      message: isFresh
+        ? `Data is ${Math.round(hoursSinceUpdate)} hours old`
+        : `Data is ${Math.round(hoursSinceUpdate)} hours old (max: ${this.maxDataAgeHours})`,
+      hoursSinceUpdate: Math.round(hoursSinceUpdate)
+    };
   }
 
-  hasValidData(data) {
+  // Legacy method for backwards compatibility
+  isDataFresh(data) {
+    return this.checkDataFreshness(data).isFresh;
+  }
+
+  validateData(data) {
     // Check if we have any actual data fields
     const dailyStats = data.dailyStats || {};
+    const availableData = [];
 
     const hasSleep = dailyStats.sleep?.score != null;
     const hasHeartRate = dailyStats.heartRate?.resting != null;
     const hasActivity = dailyStats.activity?.steps != null;
     const hasEnergy = dailyStats.energy?.score != null;
 
-    // Must have at least one valid data field
-    return hasSleep || hasHeartRate || hasActivity || hasEnergy;
+    if (hasSleep) availableData.push('sleep');
+    if (hasHeartRate) availableData.push('heart rate');
+    if (hasActivity) availableData.push('activity');
+    if (hasEnergy) availableData.push('energy');
+
+    const isValid = availableData.length > 0;
+
+    return {
+      isValid,
+      message: isValid
+        ? `Available data: ${availableData.join(', ')}`
+        : 'No valid health metrics found in data',
+      availableData
+    };
+  }
+
+  // Legacy method for backwards compatibility
+  hasValidData(data) {
+    return this.validateData(data).isValid;
+  }
+
+  showError(title, message) {
+    // Show an error state instead of just hiding the card
+    if (!this.container) return;
+
+    this.container.innerHTML = `
+      <div class="health-header">
+        <h3>📊 Health Stats</h3>
+        <span class="last-updated health-error-badge">Unavailable</span>
+      </div>
+      <div class="health-error">
+        <div class="health-error-icon">⚠️</div>
+        <div class="health-error-title">${title}</div>
+        <div class="health-error-message">${message}</div>
+        <button class="health-retry-btn" onclick="window.healthStatsInstance.loadData()">
+          Retry
+        </button>
+      </div>
+    `;
+    this.container.style.display = 'block';
   }
 
   hideHealthStats() {
@@ -243,5 +330,9 @@ class HealthStats {
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   const healthStats = new HealthStats();
+  // Store instance globally for retry button and debugging
+  window.healthStatsInstance = healthStats;
   healthStats.loadData();
 });
+
+// Enable debug mode via console: window.healthStatsInstance.debug = true
