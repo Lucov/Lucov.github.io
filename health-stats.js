@@ -92,6 +92,13 @@ class HealthStats {
     return { text: 'Above Average', color: '#ef4444' };
   }
 
+  getStressLevel(average) {
+    if (average <= 25) return { text: 'Very Low', color: '#10b981' };
+    if (average <= 50) return { text: 'Low', color: '#3b82f6' };
+    if (average <= 75) return { text: 'Moderate', color: '#f59e0b' };
+    return { text: 'High', color: '#ef4444' };
+  }
+
   formatTime(hours) {
     const h = Math.floor(hours);
     const m = Math.round((hours - h) * 60);
@@ -111,6 +118,7 @@ class HealthStats {
     const sleepQuality = hasSleep ? this.getSleepQuality(dailyStats.sleep.score) : null;
     const energyLevel = hasEnergy ? this.getEnergyLevel(dailyStats.energy.score) : null;
     const hrStatus = hasHeartRate ? this.getHeartRateStatus(dailyStats.heartRate.resting) : null;
+    const stressLevel = hasStress ? this.getStressLevel(dailyStats.stress.average) : null;
 
     const updateDate = new Date(lastUpdated).toLocaleDateString('en-US', {
       month: 'short',
@@ -150,7 +158,6 @@ class HealthStats {
             <div class="stat-label">Energy Score</div>
             <div class="stat-value" style="color: ${energyLevel.color}">${dailyStats.energy.score}</div>
             <div class="stat-meta">${energyLevel.text}</div>
-            ${dailyStats.energy.level ? `<div class="stat-detail">${dailyStats.energy.level}</div>` : ''}
           </div>
         </div>
         ` : ''}
@@ -184,8 +191,8 @@ class HealthStats {
           <div class="stat-icon">🧘</div>
           <div class="stat-content">
             <div class="stat-label">Stress Level</div>
-            <div class="stat-value">${dailyStats.stress.average} <span class="unit">/100</span></div>
-            ${dailyStats.stress.level ? `<div class="stat-meta">${dailyStats.stress.level}</div>` : ''}
+            <div class="stat-value" style="color: ${stressLevel.color}">${dailyStats.stress.average} <span class="unit">/100</span></div>
+            <div class="stat-meta">${stressLevel.text}</div>
           </div>
         </div>
         ` : ''}
