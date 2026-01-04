@@ -177,122 +177,190 @@ class HealthConnectClient:
             print(f"Error fetching activity data: {e}")
             return None
 
+    def _calculate_sleep_metrics(self, session: Dict) -> Dict[str, Any]:
+        """Calculate sleep metrics for a single session"""
+        start_ms = int(session.get('startTimeMillis', 0))
+        end_ms = int(session.get('endTimeMillis', 0))
+        duration_hours = (end_ms - start_ms) / (1000 * 60 * 60)
+
+        if duration_hours <= 0:
+            return None
+
+        # Extract sleep stages if available
+        deep_sleep = session.get('deepSleep', duration_hours * 0.2)
+        rem_sleep = session.get('remSleep', duration_hours * 0.15)
+        light_sleep = max(0, duration_hours - deep_sleep - rem_sleep)
+
+        # Calculate sleep score (simplified algorithm)
+        # Duration: 8 hours = 40 points, Deep sleep quality: up to 30 points, REM: up to 30 points
+        duration_score = min(40, (duration_hours / 8) * 40)
+        deep_score = (deep_sleep / duration_hours) * 30 if duration_hours > 0 else 0
+        rem_score = (rem_sleep / duration_hours) * 30 if duration_hours > 0 else 0
+        sleep_score = min(100, int(duration_score + deep_score + rem_score))
+
+        # Calculate energy score based on sleep quality and duration
+        energy_score = max(0, min(100, int(
+            sleep_score * 0.85 + (duration_hours / 8 * 15)
+        )))
+
+        return {
+            'duration': duration_hours,
+            'score': sleep_score,
+            'deepSleep': deep_sleep,
+            'remSleep': rem_sleep,
+            'lightSleep': light_sleep,
+            'energyScore': energy_score,
+            'startMs': start_ms,
+            'endMs': end_ms
+        }
+
     def _process_sleep_data(self, sessions: List[Dict]) -> Dict[str, Any]:
-        """Process raw sleep session data"""
+        """Process raw sleep session data with proper weekly averages"""
         if not sessions:
             return None
 
-        # Get most recent sleep session
-        latest = sessions[-1]
+        # Process all sessions to calculate proper weekly averages
+        all_metrics = []
+        for session in sessions:
+            metrics = self._calculate_sleep_metrics(session)
+            if metrics:
+                all_metrics.append(metrics)
 
-        start_ms = int(latest.get('startTimeMillis', 0))
-        end_ms = int(latest.get('endTimeMillis', 0))
-        duration_hours = (end_ms - start_ms) / (1000 * 60 * 60)
+        if not all_metrics:
+            return None
 
-        # Extract sleep stages if available
-        deep_sleep = latest.get('deepSleep', duration_hours * 0.2)
-        rem_sleep = latest.get('remSleep', duration_hours * 0.15)
-        light_sleep = duration_hours - deep_sleep - rem_sleep
+        # Get most recent session for daily stats
+        latest = all_metrics[-1]
 
-        # Calculate sleep score (simplified algorithm)
-        sleep_score = min(100, int(
-            (duration_hours / 8 * 40) +  # Duration component
-            (deep_sleep / duration_hours * 30) +  # Deep sleep quality
-            (rem_sleep / duration_hours * 30)  # REM quality
-        ))
+        start_time = datetime.fromtimestamp(latest['startMs'] / 1000)
+        end_time = datetime.fromtimestamp(latest['endMs'] / 1000)
 
-        # Calculate energy score based on sleep quality and duration
-        # Energy is typically lower than sleep score (you wake up building energy)
-        energy_score = max(0, min(100, int(
-            sleep_score * 0.85 +  # Base on sleep quality
-            (duration_hours / 8 * 15)  # Duration bonus
-        )))
+        energy_level = (
+            "High Energy" if latest['energyScore'] >= 80 else
+            "Good" if latest['energyScore'] >= 70 else
+            "Moderate" if latest['energyScore'] >= 60 else
+            "Low"
+        )
 
-        energy_level = "High Energy" if energy_score >= 80 else "Good" if energy_score >= 70 else "Moderate" if energy_score >= 60 else "Low"
+        # Calculate weekly averages from ALL sessions (up to 7 days)
+        sleep_scores = [m['score'] for m in all_metrics]
+        energy_scores = [m['energyScore'] for m in all_metrics]
+        durations = [m['duration'] for m in all_metrics]
 
-        start_time = datetime.fromtimestamp(start_ms / 1000)
-        end_time = datetime.fromtimestamp(end_ms / 1000)
-
-        # Calculate weekly averages
-        sleep_scores = [sleep_score]  # Would need to process all sessions for true average
-        energy_scores = [energy_score]
-        durations = [duration_hours]
+        print(f"    Processing {len(all_metrics)} sleep sessions for weekly averages")
 
         return {
             'daily': {
-                'duration': round(duration_hours, 1),
-                'score': sleep_score,
-                'deepSleep': round(deep_sleep, 1),
-                'remSleep': round(rem_sleep, 1),
-                'lightSleep': round(light_sleep, 1),
+                'duration': round(latest['duration'], 1),
+                'score': latest['score'],
+                'deepSleep': round(latest['deepSleep'], 1),
+                'remSleep': round(latest['remSleep'], 1),
+                'lightSleep': round(latest['lightSleep'], 1),
                 'bedTime': start_time.strftime('%H:%M'),
                 'wakeTime': end_time.strftime('%H:%M')
             },
             'energy': {
-                'score': energy_score,
+                'score': latest['energyScore'],
                 'level': energy_level
             },
             'weekly': {
                 'averageSleepScore': round(statistics.mean(sleep_scores)),
                 'averageEnergyScore': round(statistics.mean(energy_scores)),
-                'averageSleepDuration': round(statistics.mean(durations), 1)
+                'averageSleepDuration': round(statistics.mean(durations), 1),
+                'sessionsAnalyzed': len(all_metrics)
             }
         }
 
     def _process_heart_rate_data(self, data: Dict) -> Dict[str, Any]:
-        """Process raw heart rate data"""
-        hr_values = []
+        """Process raw heart rate data with daily breakdown for weekly averages"""
+        daily_hr_data = []
 
         for bucket in data.get('bucket', []):
+            bucket_values = []
             for dataset in bucket.get('dataset', []):
                 for point in dataset.get('point', []):
                     for value in point.get('value', []):
                         hr = value.get('fpVal')
-                        if hr:
-                            hr_values.append(int(hr))
+                        if hr and hr > 30 and hr < 220:  # Validate reasonable HR range
+                            bucket_values.append(int(hr))
 
-        if not hr_values:
+            if bucket_values:
+                daily_hr_data.append({
+                    'resting': min(bucket_values),
+                    'average': round(statistics.mean(bucket_values)),
+                    'max': max(bucket_values),
+                    'min': min(bucket_values)
+                })
+
+        if not daily_hr_data:
             print("Warning: No heart rate values found in API response")
             return None
 
-        resting = min(hr_values)
+        # Use most recent day for daily stats
+        latest = daily_hr_data[-1]
+
+        # Calculate weekly average resting HR
+        weekly_resting = round(statistics.mean([d['resting'] for d in daily_hr_data]))
+
+        print(f"    Processing {len(daily_hr_data)} days of heart rate data")
 
         return {
-            'resting': resting,
-            'average': round(statistics.mean(hr_values)),
-            'max': max(hr_values),
-            'min': min(hr_values),
-            'weeklyResting': resting  # Simplified
+            'resting': latest['resting'],
+            'average': latest['average'],
+            'max': latest['max'],
+            'min': latest['min'],
+            'weeklyResting': weekly_resting,
+            'daysAnalyzed': len(daily_hr_data)
         }
 
     def _process_activity_data(self, data: Dict) -> Dict[str, Any]:
-        """Process raw activity data"""
-        steps = 0
-        calories = 0
-        active_minutes = 0
+        """Process raw activity data with daily breakdown for weekly averages"""
+        daily_activity = []
 
         for bucket in data.get('bucket', []):
+            day_steps = 0
+            day_calories = 0
+            day_active_mins = 0
+
             for dataset in bucket.get('dataset', []):
                 data_type = dataset.get('dataSourceId', '')
 
                 for point in dataset.get('point', []):
                     for value in point.get('value', []):
                         if 'step_count' in data_type:
-                            steps += int(value.get('intVal', 0))
+                            day_steps += int(value.get('intVal', 0))
                         elif 'calories' in data_type:
-                            calories += int(value.get('fpVal', 0))
+                            day_calories += int(value.get('fpVal', 0))
                         elif 'active_minutes' in data_type:
-                            active_minutes += int(value.get('intVal', 0))
+                            day_active_mins += int(value.get('intVal', 0))
 
-        if steps == 0 and calories == 0 and active_minutes == 0:
+            # Only add days with actual data
+            if day_steps > 0 or day_calories > 0:
+                daily_activity.append({
+                    'steps': day_steps,
+                    'calories': day_calories,
+                    'activeMinutes': day_active_mins
+                })
+
+        if not daily_activity:
             print("Warning: No activity data found in API response")
             return None
 
+        # Use most recent day for daily stats
+        latest = daily_activity[-1]
+
+        # Calculate weekly average steps
+        all_steps = [d['steps'] for d in daily_activity if d['steps'] > 0]
+        weekly_steps = round(statistics.mean(all_steps)) if all_steps else 0
+
+        print(f"    Processing {len(daily_activity)} days of activity data")
+
         return {
-            'steps': steps,
-            'calories': calories,
-            'activeMinutes': active_minutes,
-            'weeklySteps': steps  # Simplified
+            'steps': latest['steps'],
+            'calories': latest['calories'],
+            'activeMinutes': latest['activeMinutes'],
+            'weeklySteps': weekly_steps,
+            'daysAnalyzed': len(daily_activity)
         }
 
 
@@ -322,9 +390,10 @@ def main():
     print("\nFetching health data from API...")
 
     # Fetch all data (returns None if fails)
+    # Note: We fetch 7 days for weekly averages
     sleep_data = client.get_sleep_data(days=7)
-    hr_data = client.get_heart_rate_data(days=1)
-    activity_data = client.get_activity_data(days=1)
+    hr_data = client.get_heart_rate_data(days=7)
+    activity_data = client.get_activity_data(days=7)
 
     # Track what was successfully fetched
     diagnostics['dataFetched']['sleep'] = sleep_data is not None
